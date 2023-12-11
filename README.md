@@ -1,4 +1,4 @@
-# Origin SWap
+# Origin Swap
 
 Minimal market maker.
 
