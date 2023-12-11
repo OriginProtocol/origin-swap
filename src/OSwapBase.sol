@@ -55,6 +55,8 @@ contract OSwapBase is Ownable {
 
     /**
      * @notice Receive an exact amount of output tokens for as few input tokens as possible.
+     * msg.sender should have already given the oswap contract an allowance of
+     * at least amountInMax on the input token.
      *
      * @param inToken Input token.
      * @param outToken Output token.
