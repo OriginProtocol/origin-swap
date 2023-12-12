@@ -1,8 +1,18 @@
 # Origin Swap
 
-Minimal market maker.
+Optimized swap contracts for specific high volume stable pairs.
 
-Uses prices for each pair direction that are set by the contract owner.
+# Mainnet deployment
+- stETH/WETH: [0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6](https://etherscan.io/address/0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6)
+
+# Swap interface
+```
+function swapExactTokensForTokens(IERC20 inToken, IERC20 outToken, uint256 amountIn, uint256 amountOutMin, address to) external;
+function swapTokensForExactTokens(IERC20 inToken, IERC20 outToken, uint256 amountOut, uint256 amountInMax, address to) external;
+```
+More details about arguments [here](https://github.com/OriginProtocol/origin-swap/blob/513c39ffe38d68f472f01a10abe0310501124178/src/OSwapBase.sol#L21).
+
+# Development
 
 ## Install
 
