@@ -1,20 +1,42 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Ownable} from "./Ownable.sol";
+import {OwnableOperable} from "./OwnableOperable.sol";
 import {IERC20} from "./Interfaces.sol";
 
-contract OSwapBase is Ownable {
+contract OSwapBase is OwnableOperable {
     IERC20 public immutable token0;
     IERC20 public immutable token1;
-    /// @dev For one token0 in, how many token1 we give out. 1e36
-    uint256 internal traderate0;
-    /// @dev For one token1 in, how many token0 we give out. 1e36
-    uint256 internal traderate1;
+
+    /**
+     * @notice For one `token0` from a Trader, how many `token1` does the pool send.
+     * For example, if `token0` is WETH and `token1` is stETH then
+     * `traderate0` is the WETH/stETH price.
+     * From a Trader's perspective, this is the stETH/WETH buy price.
+     * Rate is to 36 decimals (1e36).
+     */
+    uint256 public traderate0;
+    /**
+     * @notice For one `token1` from a Trader, how many `token0` does the pool send.
+     * For example, if `token0` is WETH and `token1` is stETH then
+     * `traderate1` is the stETH/WETH price.
+     * From a Trader's perspective, this is the stETH/WETH sell price.
+     * Rate is to 36 decimals (1e36).
+     */
+    uint256 public traderate1;
+
+    /// @dev Maximum operator settable traderate. 1e36
+    uint256 internal constant MAX_OPERATOR_RATE = 1005 * 1e33;
+    /// @dev Minimum funds to allow operator to price changes
+    uint256 public minimumFunds;
+
+    event TraderateChanged(uint256 traderate0, uint256 traderate1);
 
     constructor(address _token0, address _token1) {
         token0 = IERC20(_token0);
         token1 = IERC20(_token1);
+        require(IERC20(token0).decimals() == 18);
+        require(IERC20(token1).decimals() == 18);
         _setOwner(address(0)); // Revoke owner for implementation contract at deployment
     }
 
@@ -55,8 +77,6 @@ contract OSwapBase is Ownable {
 
     /**
      * @notice Receive an exact amount of output tokens for as few input tokens as possible.
-     * msg.sender should have already given the oswap contract an allowance of
-     * at least amountInMax on the input token.
      *
      * @param inToken Input token.
      * @param outToken Output token.
@@ -89,12 +109,36 @@ contract OSwapBase is Ownable {
     }
 
     /**
-     * @notice Set exchange rates.
+     * @notice Set exchange rates from an operator account
+     * @param buyT1 The buy price of Token 1 (t0 -> t1), denominated in Token 0. 1e36
+     * @param sellT1 The sell price of Token 1 (t1 -> t0), denominated in Token 0. 1e36
      */
-    function setTraderates(uint256 _traderate0, uint256 _traderate1) external onlyOwner {
+    function setPrices(uint256 buyT1, uint256 sellT1) external onlyOperatorOrOwner {
+        uint256 _traderate0 = 1e72 / sellT1; // base (t0) -> token (t1)
+        uint256 _traderate1 = buyT1; // token (t1) -> base (t0)
+        // Limit funds and loss when called by operator
+        if (msg.sender == _operator()) {
+            uint256 currentFunds = token0.balanceOf(address(this)) + token1.balanceOf(address(this));
+            require(currentFunds > minimumFunds, "OSwap: Too much loss");
+            require(_traderate0 <= MAX_OPERATOR_RATE, "OSwap: Traderate too high");
+            require(_traderate1 <= MAX_OPERATOR_RATE, "OSwap: Traderate too high");
+        }
+        _setTraderates(_traderate0, _traderate1);
+    }
+
+    /**
+     * @notice Sets the minimum funds to allow operator price changes
+     */
+    function setMinimumFunds(uint256 _minimumFunds) external onlyOwner {
+        minimumFunds = _minimumFunds;
+    }
+
+    function _setTraderates(uint256 _traderate0, uint256 _traderate1) internal {
         require((1e72 / (_traderate0)) > _traderate1, "OSwap: Price cross");
         traderate0 = _traderate0;
         traderate1 = _traderate1;
+
+        emit TraderateChanged(_traderate0, _traderate1);
     }
 
     /**

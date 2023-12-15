@@ -34,6 +34,7 @@ contract LiquidityManagerTest is Test {
         proxy.initialize(address(implementation), address(this), "");
 
         manager = ILiquidityManagerStEth(address(proxy));
+        manager.setOperator(address(this));
         manager.approveStETH();
     }
 
@@ -143,19 +144,19 @@ contract LiquidityManagerTest is Test {
         vm.startPrank(RANDOM_ADDRESS);
         uint256[] memory array = new uint256[](1);
 
-        vm.expectRevert("OSwap: Only owner can call this function.");
+        vm.expectRevert("OSwap: Only operator or owner can call this function.");
         manager.approveStETH();
 
-        vm.expectRevert("OSwap: Only owner can call this function.");
+        vm.expectRevert("OSwap: Only operator or owner can call this function.");
         manager.depositETHForStETH(1);
 
-        vm.expectRevert("OSwap: Only owner can call this function.");
+        vm.expectRevert("OSwap: Only operator or owner can call this function.");
         manager.requestStETHWithdrawalForETH(array);
 
-        vm.expectRevert("OSwap: Only owner can call this function.");
+        vm.expectRevert("OSwap: Only operator or owner can call this function.");
         manager.claimStETHWithdrawalForETH(array);
 
-        vm.expectRevert("OSwap: Only owner can call this function.");
+        vm.expectRevert("OSwap: Only operator or owner can call this function.");
         manager.claimStETHWithdrawalForWETH(array);
     }
 

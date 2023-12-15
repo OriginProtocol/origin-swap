@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
 
-import {IERC20, IOSwap} from "../src/Interfaces.sol";
+import {IERC20} from "../src/Interfaces.sol";
 import {OSwapWEthStEth} from "../src/OSwapWEthStEth.sol";
 import {Proxy} from "../src/Proxy.sol";
 
@@ -12,8 +12,10 @@ contract OSwapTest is Test {
     IERC20 steth = IERC20(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
     IERC20 BAD_TOKEN = IERC20(makeAddr("bad token"));
 
+    address operator = makeAddr("operator");
+
     Proxy proxy;
-    IOSwap oswap;
+    OSwapWEthStEth oswap;
 
     // Account for stETH rounding errors.
     // See https://docs.lido.fi/guides/lido-tokens-integration-guide/#1-2-wei-corner-case
@@ -24,14 +26,16 @@ contract OSwapTest is Test {
         proxy = new Proxy();
         proxy.initialize(address(implementation), address(this), "");
 
-        oswap = IOSwap(address(proxy));
+        oswap = OSwapWEthStEth(payable(proxy));
 
         _dealWETH(address(oswap), 100 ether);
         _dealStETH(address(oswap), 100 ether);
         // Contract will trade
         // give us 1 WETH, get 0.625 stETH
         // give us 1 stETH, get 0.5 WETH
-        oswap.setTraderates(625 * 1e33, 500 * 1e33);
+        oswap.setPrices(500 * 1e33, 1600000000000000000000000000000000000);
+        // Set operator
+        oswap.setOperator(operator);
 
         weth.approve(address(oswap), type(uint256).max);
         steth.approve(address(oswap), type(uint256).max);
@@ -43,17 +47,24 @@ contract OSwapTest is Test {
     }
 
     function test_goodPriceSet() external {
-        oswap.setTraderates(992 * 1e33, 1001 * 1e33);
-        oswap.setTraderates(1001 * 1e33, 997 * 1e33);
+        oswap.setPrices(992 * 1e33, 1001 * 1e33);
+        oswap.setPrices(1001 * 1e33, 1004 * 1e33);
     }
 
     function test_badPriceSet() external {
         vm.expectRevert(bytes("OSwap: Price cross"));
-        oswap.setTraderates(1001 * 1e33, 1001 * 1e33);
+        oswap.setPrices(90 * 1e33, 89 * 1e33);
         vm.expectRevert(bytes("OSwap: Price cross"));
-        oswap.setTraderates(1500 * 1e33, 680 * 1e33);
+        oswap.setPrices(72, 70);
         vm.expectRevert(bytes("OSwap: Price cross"));
-        oswap.setTraderates(680 * 1e33, 1500 * 1e33);
+        oswap.setPrices(1005 * 1e33, 1000 * 1e33);
+    }
+
+    function test_realistic_swaps() external {
+        vm.prank(operator);
+        oswap.setPrices(997 * 1e33, 998 * 1e33);
+        _swapExactTokensForTokens(steth, weth, 10 ether, 9.97 ether);
+        _swapExactTokensForTokens(weth, steth, 10 ether, 10020040080160320641);
     }
 
     function test_swapExactTokensForTokens_WETH_TO_STETH() external {
@@ -81,11 +92,12 @@ contract OSwapTest is Test {
             _dealStETH(address(this), amountIn + 1000);
         }
         uint256 startIn = inToken.balanceOf(address(this));
+        uint256 startOut = outToken.balanceOf(address(this));
         oswap.swapExactTokensForTokens(inToken, outToken, amountIn, 0, address(this));
         assertGt(inToken.balanceOf(address(this)), (startIn - amountIn) - ROUNDING, "In actual");
         assertLt(inToken.balanceOf(address(this)), (startIn - amountIn) + ROUNDING, "In actual");
-        assertGt(outToken.balanceOf(address(this)), expectedOut - ROUNDING, "Out actual");
-        assertLt(outToken.balanceOf(address(this)), expectedOut + ROUNDING, "Out actual");
+        assertGt(outToken.balanceOf(address(this)), startOut + expectedOut - ROUNDING, "Out actual");
+        assertLt(outToken.balanceOf(address(this)), startOut + expectedOut + ROUNDING, "Out actual");
     }
 
     function _swapTokensForExactTokens(IERC20 inToken, IERC20 outToken, uint256 amountIn, uint256 expectedOut)
@@ -125,8 +137,8 @@ contract OSwapTest is Test {
         vm.expectRevert("OSwap: Only owner can call this function.");
         oswap.setOwner(RANDOM_ADDRESS);
 
-        vm.expectRevert("OSwap: Only owner can call this function.");
-        oswap.setTraderates(123, 321);
+        vm.expectRevert("OSwap: Only operator or owner can call this function.");
+        oswap.setPrices(123, 321);
     }
 
     function test_wrongInTokenExactIn() external {
@@ -190,6 +202,57 @@ contract OSwapTest is Test {
 
     function _dealWETH(address to, uint256 amount) internal {
         deal(address(weth), to, amount);
+    }
+
+    /* Operator Tests */
+
+    function test_setOperator() external {
+        oswap.setOperator(address(this));
+        assertEq(oswap.operator(), address(this));
+    }
+
+    function test_nonOwnerCannotSetOperator() external {
+        vm.expectRevert("OSwap: Only owner can call this function.");
+        vm.prank(operator);
+        oswap.setOperator(operator);
+    }
+
+    function test_setMinimumFunds() external {
+        oswap.setMinimumFunds(100 ether);
+        assertEq(oswap.minimumFunds(), 100 ether);
+    }
+
+    function test_setGoodCheckedTraderates() external {
+        vm.prank(operator);
+        oswap.setPrices(992 * 1e33, 2000 * 1e33);
+        assertEq(oswap.traderate0(), 500 * 1e33);
+        assertEq(oswap.traderate1(), 992 * 1e33);
+    }
+
+    function test_setBadCheckedTraderates() external {
+        vm.prank(operator);
+        vm.expectRevert("OSwap: Traderate too high");
+        oswap.setPrices(1010 * 1e33, 1020 * 1e33);
+        vm.prank(operator);
+        vm.expectRevert("OSwap: Traderate too high");
+        oswap.setPrices(993 * 1e33, 994 * 1e33);
+    }
+
+    function test_checkTraderateFailsMinimumFunds() external {
+        uint256 currentFunds = oswap.token0().balanceOf(address(oswap)) + oswap.token1().balanceOf(address(oswap));
+        oswap.setMinimumFunds(currentFunds + 100);
+
+        vm.prank(operator);
+        vm.expectRevert("OSwap: Too much loss");
+        oswap.setPrices(992 * 1e33, 1001 * 1e33);
+    }
+
+    function test_checkTraderateWorksMinimumFunds() external {
+        uint256 currentFunds = oswap.token0().balanceOf(address(oswap)) + oswap.token1().balanceOf(address(oswap));
+        oswap.setMinimumFunds(currentFunds - 100);
+
+        vm.prank(operator);
+        oswap.setPrices(992 * 1e33, 1001 * 1e33);
     }
 
     // Slow on fork

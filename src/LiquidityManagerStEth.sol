@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Ownable} from "./Ownable.sol";
+import {OwnableOperable} from "./OwnableOperable.sol";
 import {IERC20, IWEth, IStETHWithdrawal} from "./Interfaces.sol";
 
-contract LiquidityManagerStEth is Ownable {
+contract LiquidityManagerStEth is OwnableOperable {
     IERC20 public constant steth = IERC20(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
     IWEth public constant weth = IWEth(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     IStETHWithdrawal public constant withdrawal = IStETHWithdrawal(0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1);
@@ -12,21 +12,21 @@ contract LiquidityManagerStEth is Ownable {
     /**
      * @notice Approve the stETH withdrawal contract. Used for redemption requests.
      */
-    function approveStETH() external onlyOwner {
+    function approveStETH() external onlyOperatorOrOwner {
         steth.approve(address(withdrawal), type(uint256).max);
     }
 
     /**
      * @notice Mint stETH with ETH
      */
-    function depositETHForStETH(uint256 amount) external onlyOwner {
+    function depositETHForStETH(uint256 amount) external onlyOperatorOrOwner {
         _depositETHForStETH(amount);
     }
 
     /**
      * @notice Mint stETH with WETH
      */
-    function depositWETHForStETH(uint256 amount) external onlyOwner {
+    function depositWETHForStETH(uint256 amount) external onlyOperatorOrOwner {
         // Unwrap the WETH then deposit the ETH.
         weth.withdraw(amount);
         _depositETHForStETH(amount);
@@ -49,7 +49,7 @@ contract LiquidityManagerStEth is Ownable {
      */
     function requestStETHWithdrawalForETH(uint256[] memory amounts)
         external
-        onlyOwner
+        onlyOperatorOrOwner
         returns (uint256[] memory requestIds)
     {
         requestIds = withdrawal.requestWithdrawals(amounts, address(this));
@@ -59,7 +59,7 @@ contract LiquidityManagerStEth is Ownable {
      * @notice Claim the ETH owed from the redemption requests.
      * Before calling this method, caller should check on the request NFTs to ensure the withdrawal was processed.
      */
-    function claimStETHWithdrawalForETH(uint256[] memory requestIds) external onlyOwner {
+    function claimStETHWithdrawalForETH(uint256[] memory requestIds) external onlyOperatorOrOwner {
         _claimStETHWithdrawalForETH(requestIds);
     }
 
@@ -67,7 +67,7 @@ contract LiquidityManagerStEth is Ownable {
      * @notice Claim the ETH owed from the redemption requests and convert it to WETH.
      * Before calling this method, caller should check on the request NFTs to ensure the withdrawal was processed.
      */
-    function claimStETHWithdrawalForWETH(uint256[] memory requestIds) external onlyOwner {
+    function claimStETHWithdrawalForWETH(uint256[] memory requestIds) external onlyOperatorOrOwner {
         // Claim the NFTs for ETH.
         _claimStETHWithdrawalForETH(requestIds);
 

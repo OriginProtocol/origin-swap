@@ -324,6 +324,6 @@ contract OSwapETHTest is Test {
     }
 
     receive() external payable {
-        console2.log("Received %s ETH!", msg.value);
+        // console2.log("Received %s ETH!", msg.value);
     }
 }

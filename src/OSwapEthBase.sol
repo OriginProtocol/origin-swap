@@ -12,6 +12,8 @@ contract OSwapEthBase is Ownable {
     /// @dev Price of 1 ETH in token. Used when swapping ETH for tokens. 36 decimals precision.
     uint256 internal traderate1;
 
+    event TraderateChanged(uint256 traderate0, uint256 traderate1);
+
     constructor(address _token) {
         token = IERC20(_token);
     }
@@ -93,6 +95,8 @@ contract OSwapEthBase is Ownable {
         require((1e72 / (_traderate0)) > _traderate1, "OSwap: Price cross");
         traderate0 = _traderate0;
         traderate1 = _traderate1;
+
+        emit TraderateChanged(_traderate0, _traderate1);
     }
 
     /**

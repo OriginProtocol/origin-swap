@@ -8,6 +8,7 @@ interface IERC20 {
     function allowance(address owner, address spender) external view returns (uint256);
     function approve(address spender, uint256 value) external returns (bool);
     function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function decimals() external view returns (uint8);
 }
 
 interface IWEth is IERC20 {
@@ -45,6 +46,7 @@ interface ILiquidityManagerStEth {
     function requestStETHWithdrawalForETH(uint256[] memory amounts) external returns (uint256[] memory requestIds);
     function claimStETHWithdrawalForETH(uint256[] memory requestIds) external;
     function claimStETHWithdrawalForWETH(uint256[] memory requestIds) external;
+    function setOperator(address _operator) external;
 }
 
 interface IStETHWithdrawal {
