@@ -1,4 +1,4 @@
-# Origin SWap
+# Origin Swap
 
 Optimized swap contracts for specific high volume stable pairs.
 
@@ -8,6 +8,7 @@ stETH/WETH: [0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6](https://etherscan.io/ad
 ## Swap interface
 ```
 function swapExactTokensForTokens(IERC20 inToken, IERC20 outToken, uint256 amountIn, uint256 amountOutMin, address to) external;
+
 function swapTokensForExactTokens(IERC20 inToken, IERC20 outToken, uint256 amountOut, uint256 amountInMax, address to) external;
 ```
 See the inline documentation in the [OSwapBase.sol](https://github.com/OriginProtocol/origin-swap/blob/master/src/OSwapBase.sol) source file for more details.
