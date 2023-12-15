@@ -1,10 +1,20 @@
-# Origin Swap
+# Origin SWap
 
-Minimal market maker.
+Optimized swap contracts for specific high volume stable pairs.
 
-Uses prices for each pair direction that are set by the contract owner.
+## Mainnet deployment
+stETH/WETH: [0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6](https://etherscan.io/address/0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6)
 
-## Install
+## Swap interface
+```
+function swapExactTokensForTokens(IERC20 inToken, IERC20 outToken, uint256 amountIn, uint256 amountOutMin, address to) external;
+function swapTokensForExactTokens(IERC20 inToken, IERC20 outToken, uint256 amountOut, uint256 amountInMax, address to) external;
+```
+See the inline documentation in the [OSwapBase.sol](https://github.com/OriginProtocol/origin-swap/blob/master/src/OSwapBase.sol) source file for more details.
+
+## Development
+
+### Install
 
 ```
 foundryup
@@ -12,7 +22,7 @@ forge install
 forge compile
 ```
 
-## Running tests
+### Running tests
 
 All tests are fork tests against the actual WETH and STETH contract
 
@@ -20,7 +30,7 @@ All tests are fork tests against the actual WETH and STETH contract
 forge test --fork-url="$PROVIDER_URL" --fork-block-number=18715431 --gas-report
 ```
 
-## Running gas report scripts
+### Running gas report scripts
 In a terminal, run anvil
 ```
 anvil --fork-url="$PROVIDER_URL" --fork-block-number=18715431
