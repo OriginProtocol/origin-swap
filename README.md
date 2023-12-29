@@ -3,7 +3,7 @@
 Optimized swap contracts for specific high volume stable pairs.
 
 ## Mainnet deployment
-stETH/WETH: [0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6](https://etherscan.io/address/0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6)
+WETH/stETH: [0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6](https://etherscan.io/address/0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6)
 
 ## Swap interface
 ```
