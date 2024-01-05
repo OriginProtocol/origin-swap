@@ -319,7 +319,7 @@ contract OSwapETHTest is Test {
      */
     function _dealToken(address to, uint256 amount) internal {
         require(address(token) == address(steth), "Unsupported token");
-        vm.prank(0x2bf3937b8BcccE4B65650F122Bb3f1976B937B2f); // stETH whale
+        vm.prank(0xEB9c1CE881F0bDB25EAc4D74FccbAcF4Dd81020a); // stETH whale
         token.transfer(to, amount);
     }
 

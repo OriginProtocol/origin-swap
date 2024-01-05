@@ -42,7 +42,7 @@ contract OSwapBase is OwnableOperable {
 
     /**
      * @notice Swaps an exact amount of input tokens for as many output tokens as possible.
-     * msg.sender should have already given the oswap contract an allowance of
+     * msg.sender should have already given the OSwap contract an allowance of
      * at least amountIn on the input token.
      *
      * @param inToken Input token.
@@ -58,25 +58,45 @@ contract OSwapBase is OwnableOperable {
         uint256 amountOutMin,
         address to
     ) external {
-        uint256 price;
-        if (inToken == token0) {
-            require(outToken == token1, "OSwap: Invalid token");
-            price = traderate0;
-        } else if (inToken == token1) {
-            require(outToken == token0, "OSwap: Invalid token");
-            price = traderate1;
-        } else {
-            revert("OSwap: Invalid token");
-        }
-        uint256 amountOut = amountIn * price / 1e36;
-        require(amountOut >= amountOutMin, "OSwap: Insufficient output amount");
+        _swapExactTokensForTokens(inToken, outToken, amountIn, amountOutMin, to);
+    }
 
-        inToken.transferFrom(msg.sender, address(this), amountIn);
-        outToken.transfer(to, amountOut);
+    /**
+     * @notice Uniswap V2 Router compatible interface. Swaps an exact amount of
+     * input tokens for as many output tokens as possible.
+     * msg.sender should have already given the OSwap contract an allowance of
+     * at least amountIn on the input token.
+     *
+     * @param amountIn The amount of input tokens to send.
+     * @param amountOutMin The minimum amount of output tokens that must be received for the transaction not to revert.
+     * @param path The input and output token addresses.
+     * @param to Recipient of the output tokens.
+     * @param deadline Unix timestamp after which the transaction will revert.
+     * @return amounts The input and output token amounts.
+     */
+    function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external returns (uint256[] memory amounts) {
+        _inDeadline(deadline);
+        require(path.length == 2, "OSwap: Invalid path length");
+        IERC20 inToken = IERC20(path[0]);
+        IERC20 outToken = IERC20(path[1]);
+
+        uint256 amountOut = _swapExactTokensForTokens(inToken, outToken, amountIn, amountOutMin, to);
+
+        amounts = new uint256[](2);
+        amounts[0] = amountIn;
+        amounts[1] = amountOut;
     }
 
     /**
      * @notice Receive an exact amount of output tokens for as few input tokens as possible.
+     * msg.sender should have already given the router an allowance of
+     * at least amountInMax on the input token.
      *
      * @param inToken Input token.
      * @param outToken Output token.
@@ -91,6 +111,48 @@ contract OSwapBase is OwnableOperable {
         uint256 amountInMax,
         address to
     ) external {
+        _swapTokensForExactTokens(inToken, outToken, amountOut, amountInMax, to);
+    }
+
+    /**
+     * @notice Uniswap V2 Router compatible interface. Receive an exact amount of
+     * output tokens for as few input tokens as possible.
+     * msg.sender should have already given the router an allowance of
+     * at least amountInMax on the input token.
+     *
+     * @param amountOut The amount of output tokens to receive.
+     * @param amountInMax The maximum amount of input tokens that can be required before the transaction reverts.
+     * @param path The input and output token addresses.
+     * @param to Recipient of the output tokens.
+     * @param deadline Unix timestamp after which the transaction will revert.
+     * @return amounts The input and output token amounts.
+     */
+    function swapTokensForExactTokens(
+        uint256 amountOut,
+        uint256 amountInMax,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external returns (uint256[] memory amounts) {
+        _inDeadline(deadline);
+        require(path.length == 2, "OSwap: Invalid path length");
+        IERC20 inToken = IERC20(path[0]);
+        IERC20 outToken = IERC20(path[1]);
+
+        uint256 amountIn = _swapTokensForExactTokens(inToken, outToken, amountOut, amountInMax, to);
+
+        amounts = new uint256[](2);
+        amounts[0] = amountIn;
+        amounts[1] = amountOut;
+    }
+
+    function _swapExactTokensForTokens(
+        IERC20 inToken,
+        IERC20 outToken,
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address to
+    ) internal returns (uint256 amountOut) {
         uint256 price;
         if (inToken == token0) {
             require(outToken == token1, "OSwap: Invalid token");
@@ -101,11 +163,39 @@ contract OSwapBase is OwnableOperable {
         } else {
             revert("OSwap: Invalid token");
         }
-        uint256 amountIn = ((amountOut * 1e36) / price) + 1; // +1 to always round in our favor
+        amountOut = amountIn * price / 1e36;
+        require(amountOut >= amountOutMin, "OSwap: Insufficient output amount");
+
+        inToken.transferFrom(msg.sender, address(this), amountIn);
+        outToken.transfer(to, amountOut);
+    }
+
+    function _swapTokensForExactTokens(
+        IERC20 inToken,
+        IERC20 outToken,
+        uint256 amountOut,
+        uint256 amountInMax,
+        address to
+    ) internal returns (uint256 amountIn) {
+        uint256 price;
+        if (inToken == token0) {
+            require(outToken == token1, "OSwap: Invalid token");
+            price = traderate0;
+        } else if (inToken == token1) {
+            require(outToken == token0, "OSwap: Invalid token");
+            price = traderate1;
+        } else {
+            revert("OSwap: Invalid token");
+        }
+        amountIn = ((amountOut * 1e36) / price) + 1; // +1 to always round in our favor
         require(amountIn <= amountInMax, "OSwap: Excess input amount");
 
         inToken.transferFrom(msg.sender, address(this), amountIn);
         outToken.transfer(to, amountOut);
+    }
+
+    function _inDeadline(uint256 deadline) internal view {
+        require(deadline >= block.timestamp, "OSwap: Deadline expired");
     }
 
     /**
