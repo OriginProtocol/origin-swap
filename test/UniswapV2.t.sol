@@ -23,12 +23,12 @@ contract UniswapV2Test is Test {
         oswap = OSwapWEthStEth(payable(proxy));
 
         // Add liquidity to the test contract.
-        _dealWETH(address(this), 100 ether);
-        _dealStETH(address(this), 100 ether);
+        _dealWETH(address(this), 1000 ether);
+        _dealStETH(address(this), 1000 ether);
 
         // Add liquidity to the pool.
-        _dealWETH(address(oswap), 100 ether);
-        _dealStETH(address(oswap), 100 ether);
+        _dealWETH(address(oswap), 1000 ether);
+        _dealStETH(address(oswap), 1000 ether);
 
         // Set prices.
         oswap.setPrices(997 * 1e33, 998 * 1e33);
@@ -48,23 +48,58 @@ contract UniswapV2Test is Test {
         deal(address(weth), to, amount);
     }
 
-    function test_swapExactTokensForTokens() external {
+    function test_swapExactStEthForWeth() external {
         address[] memory path = new address[](2);
         path[0] = address(steth);
         path[1] = address(weth);
-        uint256[] memory amounts = oswap.swapExactTokensForTokens(1 ether, 0, path, address(this), block.timestamp);
+        uint256 balanceBefore = weth.balanceOf(address(this));
+
+        uint256[] memory amounts = oswap.swapExactTokensForTokens(100 ether, 99, path, address(this), block.timestamp);
+
         assertGt(amounts[0], 0, "amount[0] should not be zero");
         assertGt(amounts[1], 0, "amount[1] should not be zero");
+        assertGe(weth.balanceOf(address(this)), balanceBefore + amounts[1], "received all output amount");
     }
 
-    function test_swapTokensForExactTokens() external {
+    function test_swapExactWethFoStEth() external {
         address[] memory path = new address[](2);
         path[0] = address(weth);
         path[1] = address(steth);
-        uint256[] memory amounts =
-            oswap.swapTokensForExactTokens(1 ether, 2 ether, path, address(this), block.timestamp);
+        uint256 balanceBefore = steth.balanceOf(address(this));
+
+        uint256[] memory amounts = oswap.swapExactTokensForTokens(100 ether, 99, path, address(this), block.timestamp);
+
         assertGt(amounts[0], 0, "amount[0] should not be zero");
         assertGt(amounts[1], 0, "amount[1] should not be zero");
+        assertGe(steth.balanceOf(address(this)), balanceBefore + amounts[1], "received all output amount");
+    }
+
+    function test_swapWethForExactStEth() external {
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(steth);
+        uint256 balanceBefore = steth.balanceOf(address(this));
+
+        uint256[] memory amounts =
+            oswap.swapTokensForExactTokens(100 ether, 101 ether, path, address(this), block.timestamp);
+
+        assertGt(amounts[0], 0, "amount[0] should not be zero");
+        assertGt(amounts[1], 0, "amount[1] should not be zero");
+        assertGe(steth.balanceOf(address(this)), balanceBefore + amounts[1], "received all output amount");
+    }
+
+    function test_swapStEthForExactWeth() external {
+        address[] memory path = new address[](2);
+        path[0] = address(steth);
+        path[1] = address(weth);
+        uint256 balanceBefore = weth.balanceOf(address(this));
+
+        uint256[] memory amounts =
+            oswap.swapTokensForExactTokens(100 ether, 101 ether, path, address(this), block.timestamp);
+
+        assertGt(amounts[0], 0, "amount[0] should not be zero");
+        assertGt(amounts[1], 0, "amount[1] should not be zero");
+        assertGe(weth.balanceOf(address(this)), balanceBefore + amounts[1], "received all output amount");
     }
 
     function test_deadline() external {

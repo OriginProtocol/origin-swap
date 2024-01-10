@@ -5,6 +5,8 @@ import {OwnableOperable} from "./OwnableOperable.sol";
 import {IERC20} from "./Interfaces.sol";
 
 contract OSwapBase is OwnableOperable {
+    address public constant stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+
     IERC20 public immutable token0;
     IERC20 public immutable token1;
 
@@ -166,8 +168,12 @@ contract OSwapBase is OwnableOperable {
         amountOut = amountIn * price / 1e36;
         require(amountOut >= amountOutMin, "OSwap: Insufficient output amount");
 
+        // Transfer the input tokens from the caller to this OSwap contract
         inToken.transferFrom(msg.sender, address(this), amountIn);
-        outToken.transfer(to, amountOut);
+
+        // Transfer the output tokens to the recipient
+        uint256 transferAmountOut = _calcTransferAmount(address(outToken), amountOut);
+        outToken.transfer(to, transferAmountOut);
     }
 
     function _swapTokensForExactTokens(
@@ -190,8 +196,23 @@ contract OSwapBase is OwnableOperable {
         amountIn = ((amountOut * 1e36) / price) + 1; // +1 to always round in our favor
         require(amountIn <= amountInMax, "OSwap: Excess input amount");
 
+        // Transfer the input tokens from the caller to this OSwap contract
         inToken.transferFrom(msg.sender, address(this), amountIn);
-        outToken.transfer(to, amountOut);
+
+        // Transfer the output tokens to the recipient
+        uint256 transferAmountOut = _calcTransferAmount(address(outToken), amountOut);
+        outToken.transfer(to, transferAmountOut);
+    }
+
+    /**
+     * @notice Calculate transfer amount for outToken.
+     * Due to internal stETH mechanics required for rebasing support,
+     * in most cases stETH transfers are performed for the value of 1 wei less than passed to transfer method.
+     * Larger transfer amounts can be 2 wei less.
+     */
+    function _calcTransferAmount(address outToken, uint256 amount) internal pure returns (uint256 transferAmount) {
+        // Add 2 wei if transferring stETH
+        transferAmount = outToken == stETH ? amount + 2 : amount;
     }
 
     function _inDeadline(uint256 deadline) internal view {
